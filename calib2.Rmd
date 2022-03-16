@@ -1,0 +1,425 @@
+---
+pdf_document: default
+author: "Fabiano Silva (drhtcl@gmail.com)"
+title: 'Exatidão em micro pipetadores: '
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+subtitle: Estudo dos erros obtidos durante calibrações e verificações intermediárias
+  2010-2020
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, class.source="bg-success")
+```
+
+## 1. Introdução
+
+As micro pipetas monocanal são instrumentos de laboratório que utilizam o principio do deslocamento de ar para criar um vácuo e aspirar um volume de liquido igual ao que foi deslocado pelo pistão (muito parecido com o funcionamento de uma seringa).
+
+Nos modelos de volume variável, é possível regular o tamanho do embolo que desloca o ar e dessa forma pipetar volumes diferentes.
+
+Essas pipetas são rotineiramente utilizadas em laboratórios para dispensação de amostras e soluções além do preparo de diluições. Elas apresentam mais praticidade e facilidade para atividades de rotina. 
+
+Em ambientes sob normas de qualidade como a ISO 17025 é necessário que esse instrumento seja calibrado e passe por checagens de sua performance durante períodos pré definidos. Em geral, elas são calibradas anualmente e checadas entre calibrações. São escolhidos 3 volumes, o máximo, um intermediário e o volume mínimo que a pipeta alcança. Por exemplo, uma pipeta de volume máximo de 1000ul seria calibrada em 500ul e 100ul (o volume mínimo normalmente representa 10% do volume máximo, porém pode variar conforme o fabricante).
+
+<center>
+
+![Figura 1: Pipeta monocanal de volume variável](/mnt/DADOS/Data Science/Calib/1.jpg){width=50%}
+
+</center>
+ 
+O interesse desse trabalho é analisar a prática anual de calibração de micro pipetadores e se ela fornece dados para prever a distribuição da ocorrência de falhas e o alargamento das frequência atualmente empregadas (anual para bienal).
+
+Os dados foram retirados dos certificados de calibração. Todos os cálculos e gráficos foram feitos em \normalsize
+**Rstudio versão  1.3.959 e R base 3.6.3**.
+
+## 1.1 Dos dados iniciais
+
+Os dados dos certificados de calibração de 20 pipetas monocanais de volume variável foram manualmente coletadas e digitadas em planilhas Excel e em seguidas exportadas para o arquivo calib.csv.
+
+Tabela 1: Cabeçalho dos dados referentes a 20 pipetadores, três pontos (volumes) por ano e 10 anos de dados: 
+
+
+```{r}
+library(knitr)
+calib <- read.csv("/mnt/DADOS/Data Science/Calib/calib.csv", dec=",")
+kable(head(calib))
+```
+
+O valor do campo "Erro" se refere ao percentual de erro em relação ao ponto calibrado. 
+Por exemplo: Uma pipeta de 1000uL e erro de 10uL terá um erro de 1%, e o valor no campo "Erro" será 1,0.
+
+
+Extraímos então um resumo dos dados:
+
+Tabela 2: Resumo dos dados presentes no estudo como quantidade de pontos para cada calibração e erros médios obtidos 
+
+\pagebreak
+
+```{r, out.width='70%'}
+library(knitr)
+kable(summary(calib))
+```
+
+Teremos 448 pontos de calibração para análise.
+
+
+## 1.2 Análise exploratória dos dados
+Primeiramente vamos buscar as primeiras relações entre as variaveis, neste caso, como os erros (campo Erro) estão distribuídos. 
+Será realizada uma plotagem (um histograma de frequência) com os dados separados conforme a faixa de calibração (Alta, Média e Baixa).  
+
+```{r, out.width='80%', fig.align='center'}
+library(ggplot2)
+library(ggthemes)
+qplot(Erro, data=calib , geom ="histogram" , fill = PONTO, binwidth=0.4)
+```
+
+Figura 1: Observando o histograma exploratório dos Erros, a maior parte do espalhamento se concentra nos pontos mais baixos (em verde). 
+&nbsp;
+
+Separando os histogramas conforme o ponto (faixa) de calibração:
+
+&nbsp;
+```{r, out.width='70%', fig.align='center'}
+library(ggplot2)
+g= qplot(Erro, data=calib , geom ="histogram", fill = PONTO, binwidth=0.5 )
+g + facet_wrap(~ PONTO, levels(c("Alto", "Médio", "Baixo" )))
+
+```
+
+
+Figura 2: Nitidamente se observa que os pontos mais baixos (em verde) apresentam maior achatamento e a maior dispersão dos dados.
+
+Os mesmos dados podem ser plotados agora como Boxplot:
+
+
+```{r, out.width='60%', fig.align='center'}
+library(ggplot2)
+library(ggthemes)
+
+g = ggplot(calib, aes(x=PONTO, y= Erro)) + scale_x_discrete(name ="Pontos de calibração", limits=c("Alto","Médio ","Baixo"))
+g + geom_boxplot() + theme_economist()
+```
+
+
+Figura 3: Boxplot dos erros conforme a faixa de medição. As caixas representam 50% dos dados e as linhas verticais os outros 50%. Os dados acima destas representam outliers. A linha central horizontal em cada caixa é a mediana.
+
+
+## 2. Distribuição dos erros conforme volume calibrado
+
+Um resumo mais robusto dos resultados pode ser obtido plotando os erros relativos no formato absoluto(módulo)no eixo Y ao volume calibrado (como log, para facilitar a visualização) no eixo X.
+
+```{r fig.align='center', message=FALSE, warning=FALSE, collapse=TRUE, out.width='70%'}
+library(ggplot2)
+g = invisible(ggplot(calib, aes(x=volume_ul, y=abs(Erro)))+ stat_summary())
+g + xlab("Volume ul em log10") + scale_x_continuous(trans="log10")
+
+```
+
+Figura 4: Gráfico de dispersão com barras de erros mostrando a relação decrescente entre erros e faixa de medição.
+
+Não há dúvida que a partir de 100uL os erros de calibração aumentam muito, resta saber o quanto.
+
+Considerando apenas os erros dos pontos de calibração mais baixos, vamos obter a média e desvio padrão para os pontos inferiores:
+
+```{r echo=TRUE, collapse=TRUE}
+baixo <- subset(calib$Erro, calib$PONTO == "Baixo")
+mean(baixo)
+sd(baixo)
+```
+
+Para comparação, o mesmo para os valores superiores:
+
+
+```{r,collapse=TRUE}
+alto <- subset(calib, PONTO == "Alto")
+alto <- alto$Erro
+mean(alto)
+sd(alto)
+```
+
+
+Se pode notar que o erro médio nas faixas inferiores é 2x maior do que na alta e a dispersão dos dados 4x maior.
+Esse dado é esperado já que a maioria dos ensaios analíticos sofrem considerável diminuição da precisão conforme a faixa analítica diminui.
+
+
+
+## 2.1 Análise da normalidade dos dados
+
+Vamos analisar se os erros obedecem uma distribuição normal. Usaremos uma plotagem QQ dos pontos de calibração (baixo e alto) contra valores normalmente distribuidos teóricos. 
+Ou seja, nesse grafico é visualizada a correlação entre os valores dos quantis experimentais e de uma distribuição normal com mesma média e desvio padrão.
+
+```{r out.width='80%', fig.align='center'}
+par(mfrow = c(1,2))
+qqnorm(baixo, pch = 1, frame = FALSE, main = "Normal QQ Plot (Baixos)")
+qqline(baixo, col = "steelblue", lwd = 2)
+qqnorm(alto, pch = 1, frame = FALSE, main= "Normal QQ Plot (Altos)")
+qqline(alto, col = "steelblue", lwd = 2)
+```
+
+
+Figura 5: Apesar de boa correlação visual com os teóricos não é possível considerar as distribuições como normais. 
+A confirmação será feita atravéz do teste Shapiro-Wilk:
+
+&nbsp;
+
+```{r,collapse=TRUE}
+shapiro.test(baixo)
+```
+
+
+```{r,collapse=TRUE}
+shapiro.test(alto)
+```
+
+&nbsp;
+
+Como os valores de P de significancia foram muito baixos, não há normalidade nos dados.
+
+
+
+## 2.2 Sobre a estabilidade dos erros e tendência
+
+Vamos agora pesquisar por tendências no comportamento dos erros ao longo do tempo, essa sera a informação mais importante deste estudo pois indicará se há estabilidade no processo metrologico,  exceto claro, no evento de falhas fisicas nos instrumentos. 
+
+A plotagem abaixo descreve os erros relativos conforme a data (Ano) durante um período de 10 anos. A linha Azul e a regressão linear dos valores e as linha vermelhas são as faixas aceitas pelo laboratorio (erros entre 4% e -4%).
+
+```{r message=FALSE, warning=FALSE, out.width='70%', fig.align='center',}
+ggplot(calib, aes(Data, Erro))+geom_point(show.legend = FALSE,alpha =1/4)+geom_smooth(method=lm, color = 'blue')+ geom_hline(yintercept=4, linetype="solid", color = "red")+ geom_hline(yintercept=-4, linetype="solid", color = "red")
+```
+
+
+
+Figura 6. Leve tendência positiva pode ser vista na regressão linear.
+
+Avaliando agora o qual o impacto anual através dos coeficientes do modelo.
+
+```{r,collapse=TRUE}
+lm(Data~Erro,data=calib)
+```
+O modelo descreve que no ano de 2015  média dos erros foi zero e que a inclinação da curva é de 0,22% ao ano. Isso por ser confirmado verificando qual a media de 2020:
+```{r,collapse=TRUE}
+mean(subset(calib$Erro,calib$Data==2020 ))
+```
+Muito próximo do calculado:
+```{r,collapse=TRUE}
+0.22*5
+```
+Ou seja, penas em 2033 a média dos erros estaria em 4%, o que seria muito improvável já que as pipetas ja teriam sido substituídas devido ao final da vida útil.
+```{r,collapse=TRUE}
+(4/0.22)+2015
+```
+
+
+## 3. Analisando mais detalhadamente os pontos baixos de calibração
+
+De todas as calibrações, um total de 18 (4%) ficaram fora do limite interno de aceitação do laboratorio que é de 4%. 
+Verificamos agora se a exclusão dos dados acima de 4% de erro, retornam o conjunto a normalidade.
+
+```{r,collapse=TRUE}
+baixo <- subset(calib, PONTO == "Baixo")
+baixo4 <- subset(baixo, Erro < 4 & Erro > -4)
+shapiro.test(baixo4$Erro)
+```
+
+O P de significancia confirma que com a exclusão dos equipamentos com falhas, se obtém um P de aproximadamente 0,14 (>P 0.05). confirmando a normalidade dos dados.
+
+
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width='40%'}
+library(ggplot2)
+ggplot(data=baixo4 ,aes(Erro))+geom_histogram(fill="blue")
+ggplot(data=baixo4 ,aes(sample=Erro))+ stat_qq() + stat_qq_line(color="blue")
+  
+  
+
+```
+
+&nbsp;
+Figura 6: Distribuição dos erros dos ponto inferiores das pipetas após exclusão dos erros acima de 4%. Acima histograma de frequência, abaixo gráfico QQ.
+
+## 4. Resumo dos outliers
+
+Vamos agora tentar entender a origem, distribuição e frequência dos erros nos pontos inferiores de calibração (menores volumes). Esses pontos serão considerados outliers daqui em diante.
+
+Abaixo podemos ver a diferença entre os quartis dentro do conjundo de dados e o mesmo sem os outliers (respectivamente):
+
+```{r,collapse=TRUE, class.source="bg-success"}
+round(quantile(abs(baixo$Erro)),2)
+round(quantile(abs(baixo4$Erro)),2)
+```
+
+Aqui selecionamos somente os outliers (de todo o conjunto de dados):
+
+Tabela 3: Seleção dos erros acima de 4%.
+```{r,collapse=TRUE}
+library(knitr)
+Erro4 = subset(calib, Erro >4 | Erro < -4)
+kable(Erro4)
+```
+
+Pode-se observar que 100% dos outliers provém de pontos de calibração mais baixos.
+Aqui, sua plotagem (Valor do Erro em % contra o ano de calibração) para verificar visualmente por tendências:
+
+```{r, echo=FALSE, message=FALSE, results='hide', out.width='50%'}
+library(ggplot2)
+par(mfrow = c(1,2))
+qplot( Erro4$Data, Erro4$Erro) +geom_smooth() 
+qplot( Erro4$Data, Erro4$Erro, color = Erro4$TAG, size=Erro4$volume_ul)  
+```
+
+
+Figura 7: Resumo gráfico do comportamento dos erros. A esquerda scarterplot com linha de suavização dos dados de calibração versus tempo e a direita os mesmos dados com identificação da pipeta (por cor) e Volume (tamanho do marcador) que apresentou erro acima de 4%.
+
+Não é possível visualizar tendências claras. Nem quanto a evolução do tempo como em relação a volumes e pipetas específicas.
+
+
+
+## 5. Comparação com dados de verificação
+
+
+Conforme exigencias da ISO/IEC 17025 [4] Laboratórios de ensaio necessitam fazer verificações intermediária (checagens) de seus equipamentos. Estes dados (20 pipetas, 3 pontos, 10 anos) foram compilados aos dados já existentes no novo arquivo calib-verif.csv
+
+
+Tabela 4: Os erros obtidos na verificação intermediária estão incluidos no campo "Erro_verif_ul" e os valores relativos (% do valor ensaiado) no campo "Erro_verif_ul_rel"
+```{r}
+library(knitr)
+calib_verif <- read.csv("/mnt/DADOS/Data Science/Calib/calib-verif.csv", dec=".")
+kable(head(calib_verif))
+```
+
+Podemos agora investigar se há relação entre os valores de erros obtidos na calibração e na verificação intermediária correlacionando os dois:
+
+```{r, out.width='80%', fig.align='center'}
+library(ggplot2)
+g=ggplot(calib_verif, aes(x=abs(Erro),y=abs(Erro_verif_ul_rel)))
+g= g+geom_rect(data=NULL,aes(xmin=0,xmax=4,ymin=0,ymax=4), fill= "lightblue", alpha = 1/20)
+g= g+geom_point(alpha =1) 
+g
+```
+Figura 8. Scarterplot dos dados de calibração e verificação intermediária de pipetas automáticas. Pode-se notar um forte concentração de dados dentro da faixa de 4% de erro (quadrado azul), e a existência de varios outiliers. 
+Obs: ambos os eixos estão com valores absolutos, pois os dados mais antigos de verificação intermediária não leva em consideração se a tendência era positiva ou negativa.
+
+Para melhorar a visualização, podemos passar ambos os eixo para Log base 10 deixar os limites do processo mais claros:
+
+
+
+```{r fig.align='center', warning=FALSE, out.width='80%'}
+library(ggplot2)
+cv = ggplot(calib_verif, aes(x=abs(Erro), y=abs(Erro_verif_ul_rel), color = PONTO ))
+cv =cv +geom_rect(data=NULL,aes(xmin=0,xmax=50,ymin=0,ymax=50), fill= "yellow", alpha = 1/500)
+cv = cv+geom_rect(data=NULL,aes(xmin=0,xmax=4,ymin=0,ymax=4), fill= "lightblue", alpha = 1/20)
+cv= cv + geom_point()  + geom_rug()
+cv= cv+ scale_y_continuous(trans="log10") + scale_x_continuous(trans="log10")
+cv
+
+
+```
+
+
+
+Figura 9: Distribuição dos erros obtidos pela calibração(Erro) contra os erros obtidos na verificação intermediária(Erro_verif_ul_rel). Eixos no formato logarítimico (base 10). Região delimitada em azul está dentro do erro aceitável de 4%, a em amarelo, fora. Traços próximos aos eixos indicam os valores individuais. Cores separam as três faixas de calibração/verificação de cada pipeta.
+
+Há uma baixa correlação entre os dados, ou seja, não é possivel supor que o laboratório conseguiria replicar numericamente os dados de fornecedor de calibração, porém, é nitido que ele alcança faixas próximas. Para erros de calibração na região de 1% o laboratório verificou erros na faixa de 1%. Somente os pontos baixos na verificação (menores volumes de cada pipeta) ficaram acima dos 4% de erro relativo aceito no laboratório como limite. Mesmo comportamento encontrado pelo fornecedor de calibração.
+
+
+
+
+
+## 6. Abordagens recomendadas pelo ILAC: Carta Controle
+
+Uma das abordagens recomendadas pelo ILAC (international Laboratory Accreditation Cooperation) é o uso de cartas controles para verificar a distribuição dos erros ao longo do tempo para um mesmo equipamento. Por simplificação, será construida a carta controle utilizando o pool total de dados, sem subgrupos, com todas as pipetas:
+
+
+&nbsp;
+
+
+```{r, echo= TRUE, message=FALSE, results='hide', out.width='70%', fig.align='center'}
+library(qcc)
+qcc(calib$Erro, type="xbar.one")
+```
+Figura 10: Carta controle com os 448 valores individuais de calibração de pipetas volumétricas. Erro expressos como % do valor testado durante a calibração.
+
+Se observa que os limites de controle do processo (UCL e LCL) ficaram em aproximadamente 4%( 3,9% de limite superior e -3,5% de limite inferior). Um valor muito próximo do já utilizado e que representa um processo controlado com distribuição normal.
+
+
+## 7. Considerações os pontos com erros acima de 4%
+
+É interessante notar na figura 11 que todos os pontos com calibração acima do limite máximo aceito pelo laboratório (em vermelho) são de pipetas que possuem pares ou modelos de que alcançam valores inferiores de volume trabalhando nas faixas média ou alta. 
+Isso significa que caso uma pipeta de 1000ul tenha seu ponto inferior reprovado, existem modelos de 100 ou 200ul que atenderiam a demanda.
+
+&nbsp;
+
+
+
+```{r,fig.align='center', out.width='70%', echo=FALSE}
+library(ggrepel)
+library(ggplot2)
+g = ggplot(calib_verif, aes(x= (volume_ul), y = TAG, label = Data)) 
+g= g+ geom_point(color = dplyr::case_when(calib_verif$Erro > 4 ~ "red", 
+                                      calib_verif$Erro < -4 ~ "red",
+                                      TRUE ~ "lightblue"), 
+             size = 4, alpha = 0.5)+geom_point()+geom_text_repel(data = subset(calib_verif, Erro > 4),
+                  nudge_y       = 0 - subset(calib_verif, Erro > 4)$Data,
+                  size          = 3,
+                  box.padding   = 0.5,
+                  point.padding = 0.5,
+                  force         = 30,
+                 segment.size  = 0.6,
+                  segment.color = "grey50",
+                  direction     = "x",) +geom_text_repel(data=subset(calib_verif, Erro <=-4),
+                  nudge_y       = 0 - subset(calib_verif, Erro <=-4)$Data,
+                  size          = 3,
+                  box.padding   = 2,
+                  point.padding = 0.5,
+                  force         = 100,
+                  segment.size  = 0.6,
+                  segment.color = "grey50",
+                  direction     = "x",
+                                    ) 
+g= g +  theme_classic(base_size = 10)+geom_rug() 
+g = g+ scale_y_discrete(expand = expansion(mult = c(0.1, 0.1)))
+g = g+coord_trans(x = "log2") 
+g
+
+```
+
+
+Figura 11: Pontos de calibração avaliados de 2010 a 2020. Escala logarítimica (base 10) para facilitar visualização. Pontos azuis indicam calibração satisfatória pontos em vermelho indicam falha (acima de 4% de erro em relação ao volume testado). O ano da reprovação esta indicado nos rótulos.
+
+sfsdfsafs
+
+## 8. Conclusão
+
+Pode-se concluir que a utilização de um limite de 4% e calibração a cada 24 meses é válido, já que:
+
+1- Os dados abaixo de 4% de erro relativo apresentam normalidade.
+
+2- Estão dentro de um histórico no contexto de controle estatístico de processo.
+
+3- Os pontos críticos do processo estão identificados (Valores inferiores de uso de cada pipeta com volume total abaixo de 1mL)
+
+4- Das 20 pipetas, somente 5 apresentaram reincidencia no critério de exclusão do laboratório ao longo de 10 anos e poderiam ser mantidas com frequência anual. Do mesmo grupo, 10 pipetas nunca tiveram pontos reprovados em calibrações. 
+
+5- Não há registro de pipetadores de volumes médio e alto com falhas durante o período de 10 anos tanto de calibração como verificação intermediária.
+
+6- Volumes baixos problemáticos em algumas pipetas podem ser substuidos por outras que trabalham com esse mesmo volume porém, como ponto médio ou alto. por exemplo: o ponto inferior de uma pipeta de 1000uL (neste caso 100uL) pode ter seu uso substituído por uma de 100uL de volume máximo.
+
+
+
+## 9. Referências
+
+
+[1] R Core Team (2020). R: A language and environment for statistical computing. R Foundation for Statistical
+  Computing, Vienna, Austria. URL https://www.R-project.org/.
+  
+[3] H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
+
+[2] ILAC-G24, 2007, Guidelines for the determination of calibration intervals of measuring instruments.
+
+[4] ISO/IEC 17025:2017, General requirements for the competence of testing and calibration laboratories.
+
