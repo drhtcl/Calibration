@@ -81,7 +81,7 @@ qplot(Erro, data=calib , geom ="histogram" , fill = PONTO, binwidth=0.4)
 
 Figura 1: Observando o histograma exploratório dos Erros, a maior parte do espalhamento se concentra nos pontos mais baixos (em verde). 
 &nbsp;
-
+&nbsp;
 Separando os histogramas conforme o ponto (faixa) de calibração:
 
 &nbsp;
