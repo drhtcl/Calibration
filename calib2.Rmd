@@ -71,7 +71,7 @@ Teremos 448 pontos de calibração para análise.
 
 ## 1.2 Análise exploratória dos dados
 Primeiramente vamos buscar as primeiras relações entre as variaveis, neste caso, como os erros (campo Erro) estão distribuídos. 
-Será realizada uma plotagem (um histograma de frequência) com os dados separados conforme a faixa de calibração (Alta, Média e Baixa).  
+Será realizada uma plotagem (um histograma de frequência) com os dados separados conforme a faixa de calibração (Alta, Média e Baixa): 
 
 ```{r, out.width='80%', fig.align='center'}
 library(ggplot2)
